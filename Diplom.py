@@ -50,10 +50,10 @@ def wright_json(data):
 
 
 friends = get_friends(token, main_id)
-code = '%s%s' % ('return{', '"%s": API.groups.get({"user_id":%s, "extended":%s})};' % (main_id, main_id, 1))
+code = '%s%s' % ('return{', '"%s": API.groups.get({"user_id":%s, "fields":"members_count", "extended":%s})};' %
+                 (main_id, main_id, 1))
 my_groups = get_groups(token, code)[str(main_id)]['items']
 my_groups_set = set(group_id['id'] for group_id in my_groups)
-
 
 my_friends_group = []
 for friend in parts(list(friends)):
@@ -82,6 +82,6 @@ new_group = []
 for group_id in difference_group:
     for group in my_groups:
         if group['id'] == group_id:
-            new_group.append({'name':group['name'], 'gid':group['id']})
+            new_group.append({'name': group['name'], 'gid': group['id'], 'members_count': group['members_count']})
 
 wright_json(new_group)
