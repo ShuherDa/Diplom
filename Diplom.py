@@ -5,83 +5,86 @@ import json
 import os
 from sys import getdefaultencoding
 
-main_id = 171691064
-token = '7b23e40ad10e08d3b7a8ec0956f2c57910c455e886b480b7d9fb59859870658c4a0b8fdc4dd494db19099'
+MAIN_ID = 171691064
+# TOKEN = '7b23e40ad10e08d3b7a8ec0956f2c57910c455e886b480b7d9fb59859870658c4a0b8fdc4dd494db19099'
+TOKEN = '89e650f4b09928180a3cd808134db3a69f328305abafdaa9900f4b75d6b29b73aa11f7847f64ccb9e76ee'
 
-def get_user_info(token, code):
+def vk_request(token, code):
     pprint('.')
     try:
-        response = requests.get('https://api.vk.com/method/execute?v=5.80&access_token=' + token + '&code=' + code)
+        result = requests.get('https://api.vk.com/method/execute?v=5.80&access_token=' + token + '&code=' + code).json()
+        time.sleep(0.1)
     except:
-        time.sleep(2)
-        response = requests.get('https://api.vk.com/method/execute?v=5.80&access_token=' + token + '&code=' + code)
+         result = {'error': {'error_code': -1, 'error_msg': 'Ошибка выполнения запроса'}}
 
-    return response.json()['response']
+    if 'error' in result:
+         print('Ошибка при получении данных пользователя: {} ({})'.format(result['error']['error_code'],
+                                                                          result['error']['error_msg']))
+         return dict()
+    if 'response' in result.keys():
+        return result['response']
+    else:
+        return dict()
 
-def get_friends(token,id):
-    pprint('.')
-    response = requests.get('https://api.vk.com/method/friends.get',
-                            params=dict(
-                            access_token=token,
-                            user_id=id,
-                            v=5.80
-                            )).json()['response']
-    return {item for item in response['items']}
+def get_groups(friends):
+    my_friends_group = []
+    for friend in parts(list(friends)):
+        code = 'return {'
+        for id in friend:
+            code = '%s%s' % (code, '"%s": API.groups.get({"user_id":%s, "fields":"members_count", "extended":%s}),' %
+                                                                                                            (id, id, 1))
+        code = '%s%s' % (code, '};')
+        friends_group = vk_request(TOKEN, code)
+        for friends_id in friends_group:
+            if friends_group[friends_id] and 'items' in friends_group[friends_id]:
+                for group_id in friends_group[friends_id]['items']:
+                    if not 'deactivated' in group_id.keys():
+                        if 'members_count' in group_id.keys():
+                            my_friends_group.append({'id': group_id['id'], 'name': group_id['name'],
+                                                 'members_count': group_id['members_count']})
+                        else:
+                            my_friends_group.append({'id': group_id['id'], 'name': group_id['name'],
+                                                 'members_count': 0})
 
-def get_groups(token, code):
-    pprint('.')
-    try:
-        response = requests.get('https://api.vk.com/method/execute?v=5.80&access_token=' + token + '&code=' + code)
-    except:
-        time.sleep(2)
-        response = requests.get('https://api.vk.com/method/execute?v=5.80&access_token=' + token + '&code=' + code)
 
-    return response.json()['response']
+    return my_friends_group
 
 def parts(lst, n=25):
     """ разбиваем список на части - по 25 в каждой """
+    """Без разбивки почему то в исключение вываливается"""
     return [lst[i:i + n] for i in iter(range(0, len(lst), n))]
 
-def wright_json(data):
+def write_json(filename, data):
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    current_dir = os.path.join(current_dir, "groups.json")
+    current_dir = os.path.join(current_dir, filename)
     with open(current_dir, "w", encoding=getdefaultencoding()) as file:
-        json.dump(data, file)
+        json.dump(data, file, ensure_ascii=False)
 
+def get_friends():
+    print('.')
+    code = '%s%s' % ('return{', '"%s": API.friends.get({"user_id":%s})};' % (MAIN_ID, MAIN_ID))
+    friends = vk_request(TOKEN, code)[str(MAIN_ID)]
+    if 'items' in friends.keys():
+        friends = friends['items']
+    else:
+        friends = {}
+    return friends
 
-friends = get_friends(token, main_id)
-code = '%s%s' % ('return{', '"%s": API.groups.get({"user_id":%s, "fields":"members_count", "extended":%s})};' %
-                 (main_id, main_id, 1))
-my_groups = get_groups(token, code)[str(main_id)]['items']
-my_groups_set = set(group_id['id'] for group_id in my_groups)
+def get_file(my_groups, my_friends_group):
+    new_group = []
+    difference_group = set(group_id['id'] for group_id in my_groups).difference(set(group_id['id'] for group_id in
+                                                                                    my_friends_group))
+    for group_id in difference_group:
+        for group in my_groups:
+            if group['id'] == group_id:
+                new_group.append({'name': group['name'], 'gid': group['id'], 'members_count': group['members_count']})
 
-my_friends_group = []
-for friend in parts(list(friends)):
-    code = 'return {'
-    for id in friend:
-         code = '%s%s' % (code, '"%s": API.users.get({"user_ids":%s}),' % (id, id))
-    code = '%s%s' % (code, '};')
-    information = get_user_info(token, code)
-    code = 'return {'
-    for user_info in information:
-        if not 'deactivated' in information[user_info][0].keys():
-            code = '%s%s' % (code, '"%s": API.groups.get({"user_id":%s, "extended":%s}),' % (
-                                                                              information[user_info][0]['id'],
-                                                                              information[user_info][0]['id'],
-                                                                              1))
-    code = '%s%s' % (code, '};')
-    friends_group = get_groups(token, code)
-    for friends_id in friends_group:
-        if friends_group[friends_id]:
-            for group_id in friends_group[friends_id]['items']:
-                if not 'deactivated' in group_id.keys():
-                    my_friends_group.append(group_id['id'])
+    return new_group
 
-difference_group = my_groups_set.difference(set(my_friends_group))
-new_group = []
-for group_id in difference_group:
-    for group in my_groups:
-        if group['id'] == group_id:
-            new_group.append({'name': group['name'], 'gid': group['id'], 'members_count': group['members_count']})
+friends = get_friends()
 
-wright_json(new_group)
+my_groups = get_groups({MAIN_ID})
+
+my_friends_group = get_groups(friends)
+
+write_json("groups.json", get_file(my_groups, my_friends_group))
