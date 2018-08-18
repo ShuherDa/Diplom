@@ -27,6 +27,7 @@ def vk_request(token, code):
         return dict()
 
 def get_groups(friends):
+    pprint('.')
     my_friends_group = []
     for friend in parts(list(friends)):
         code = 'return {'
@@ -60,10 +61,10 @@ def write_json(filename, data):
     with open(current_dir, "w", encoding=getdefaultencoding()) as file:
         json.dump(data, file, ensure_ascii=False)
 
-def get_friends():
+def get_friends(id):
     print('.')
-    code = '%s%s' % ('return{', '"%s": API.friends.get({"user_id":%s})};' % (MAIN_ID, MAIN_ID))
-    friends = vk_request(TOKEN, code)[str(MAIN_ID)]
+    code = '%s%s' % ('return{', '"%s": API.friends.get({"user_id":%s})};' % (id, id))
+    friends = vk_request(TOKEN, code)[str(id)]
     if 'items' in friends.keys():
         friends = friends['items']
     else:
@@ -81,7 +82,7 @@ def get_file(my_groups, my_friends_group):
 
     return new_group
 
-friends = get_friends()
+friends = get_friends(MAIN_ID)
 
 my_groups = get_groups({MAIN_ID})
 
